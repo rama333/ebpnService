@@ -12,14 +12,13 @@ import (
 )
 
 type MobileInfno struct {
-	Number int64
-	OwnerId string
-	MNC int64
-	Route string
+	Number     int64
+	OwnerId    string
+	MNC        int64
+	Route      string
 	RegionCode int
-	PortDate string
+	PortDate   string
 }
-
 
 //CREATE TABLE IF NOT EXISTS MobileInfo (
 //number Int64,
@@ -32,19 +31,18 @@ type MobileInfno struct {
 //ORDER BY Number
 //SETTINGS index_granularity = 8192
 
-
 var (
-	USER = ""
-	HOST = ""
-	PORT = 0
-	PASS = ""
-	SIZE =  1<<15
+	USER   = "SmartsK"
+	HOST   = "prod-sftp.numlex.ru"
+	PORT   = 3232
+	PASS   = "hg*&(kjhkjmnh8760"
+	SIZE   = 1 << 15
 	layout = "2006-01-02 15:04:05"
 )
 
-func main(){
+func main() {
 
-	db, err := sqlx.Open("clickhouse", "")
+	db, err := sqlx.Open("clickhouse", "tcp://192.168.114.145:9000?debug=true")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -91,7 +89,7 @@ func main(){
 	//
 	//r.WriteTo(dstFile)
 
-	file, err := os.Open("")
+	file, err := os.Open("./Port_All_202010010000_2507.csv")
 	if err != nil {
 		panic(err)
 	}
@@ -100,7 +98,6 @@ func main(){
 
 	reader := csv.NewReader(file)
 	reader.Comma = ','
-
 
 	mobInfo := make([]MobileInfno, 0, 5)
 
@@ -114,24 +111,22 @@ func main(){
 		}
 
 		number, err := strconv.ParseInt(record[0], 10, 64)
-		if err!= nil{
+		if err != nil {
 			log.Println(err)
 			continue
 		}
 
 		mnc, err := strconv.ParseInt(record[2], 10, 64)
-		if err!= nil{
+		if err != nil {
 			log.Println(err)
 		}
 
 		region, err := strconv.Atoi(record[4])
-		if err!= nil{
+		if err != nil {
 			log.Println(err)
 		}
 
-
 		dateTemp, err := time.Parse(time.RFC3339, record[5])
-
 
 		if err != nil {
 			log.Panic(err)
@@ -142,32 +137,34 @@ func main(){
 
 		mInfo := MobileInfno{Number: number, OwnerId: record[1], MNC: mnc, Route: record[3], RegionCode: region, PortDate: date}
 
-		mobInfo = append(mobInfo,mInfo)
+		mobInfo = append(mobInfo, mInfo)
 
-		if (a % 100000==0){
+		if a%100000 == 0 {
 
 			insertToBD(mobInfo, db)
 			mobInfo = mobInfo[:0]
 
 		}
 
-		a+=1
+		a += 1
 
 	}
+
+	insertToBD(mobInfo, db)
 
 	fmt.Println(len(mobInfo))
 
 }
 
-func insertToBD(mobInfo []MobileInfno, db *sqlx.DB)  {
-	tx,_ := db.Begin()
+func insertToBD(mobInfo []MobileInfno, db *sqlx.DB) {
+	tx, _ := db.Begin()
 	stmp, _ := tx.Prepare("INSERT INTO MobileInfo (number, ownerId, mnc , route , regionCode, portDate ) VALUES (?, ?, ?, ?, ?, ?)")
 
-	for _, post := range mobInfo{
+	for _, post := range mobInfo {
 
-		_, err := stmp.Exec(post.Number,post.OwnerId,post.MNC, post.Route, post.RegionCode, post.PortDate)
-		if  err != nil {
-			log.Println("err",err)
+		_, err := stmp.Exec(post.Number, post.OwnerId, post.MNC, post.Route, post.RegionCode, post.PortDate)
+		if err != nil {
+			log.Println("err", err)
 		}
 	}
 
